@@ -1,0 +1,180 @@
+const mongoose = require('mongoose');
+const Schema = mongoose.Schema;
+
+// User Schema
+const userSchema = new Schema({
+    firstName: { type: String, required: true },
+    lastName: { type: String, required: true },
+    email: { type: String, required: true, unique: true, index: true },
+    password: { type: String, required: true },
+    phoneNumber: { type: String, required: true },
+    role: { type: String, enum: ['admin', 'owner', 'staff'], default: 'owner' },
+    subscription: {
+        status: { type: String, enum: ['trial', 'active', 'expired'], default: 'trial' },
+        trialStart: { type: Date, default: Date.now },
+        trialEnd: { type: Date, default: null },
+        currentPlan: { type: String, enum: ['free', 'basic', 'premium'] },
+        lastPayment: { type: Date, default: null },
+        nextPayment: { type: Date, default: null }
+    },
+    address: {
+        street: String,
+        city: String,
+        state: String,
+        zipCode: String,
+        country: String
+    },
+    isActive: { type: Boolean, default: true }
+}, { timestamps: true });
+
+// Store Schema
+const storeSchema = new Schema({
+    owner: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+    name: { type: String, required: true },
+    registrationNumber: { type: String, required: true, unique: true },
+    licenseNumber: { type: String, required: true, unique: true },
+    phoneNumber: { type: String, required: true },
+    email: { type: String, required: true, unique: true },
+    address: {
+        street: String,
+        city: String,
+        state: String,
+        zipCode: String,
+        country: String
+    },
+    operatingHours: {
+        open: String,
+        close: String,
+        holidays: [String]
+    },
+    staff: [{ type: Schema.Types.ObjectId, ref: 'User' }],
+    isActive: { type: Boolean, default: true }
+}, { timestamps: true });
+
+// Product Category Schema
+const categorySchema = new Schema({
+    store: { type: Schema.Types.ObjectId, ref: 'Store', required: true },
+    name: { type: String, required: true },
+    description: String,
+    isActive: { type: Boolean, default: true }
+}, { timestamps: true });
+
+// Product Schema
+const productSchema = new Schema({
+    store: { type: Schema.Types.ObjectId, ref: 'Store', required: true },
+    category: { type: Schema.Types.ObjectId, ref: 'Category' },
+    name: { type: String, required: true },
+    genericName: String,
+    description: String,
+    manufacturer: String,
+    requiresPrescription: { type: Boolean, default: false },
+    dosageForm: String,
+    strength: String,
+    barcode: { type: String, unique: true, sparse: true },
+    image: String,
+    minStockLevel: { type: Number, default: 10 },
+    isActive: { type: Boolean, default: true }
+}, { timestamps: true });
+
+// Product Batch Schema
+const batchSchema = new Schema({
+    product: { type: Schema.Types.ObjectId, ref: 'Product', required: true },
+    store: { type: Schema.Types.ObjectId, ref: 'Store', required: true },
+    batchNumber: { type: String, required: true },
+    manufacturingDate: { type: Date, required: true },
+    expiryDate: { type: Date, required: true },
+    costPrice: { type: Number, required: true },
+    sellingPrice: { type: Number, required: true },
+    currentStock: { type: Number, required: true },
+    initialStock: { type: Number, required: true },
+    supplier: { type: Schema.Types.ObjectId, ref: 'Supplier' },
+    isActive: { type: Boolean, default: true }
+}, { timestamps: true, indexes: [{ batchNumber: 1, store: 1 }, { unique: true }] });
+
+// Supplier Schema
+const supplierSchema = new Schema({
+    store: { type: Schema.Types.ObjectId, ref: 'Store', required: true },
+    name: { type: String, required: true },
+    contactPerson: String,
+    email: { type: String, unique: true, sparse: true },
+    phoneNumber: String,
+    address: {
+        street: String,
+        city: String,
+        state: String,
+        zipCode: String,
+        country: String
+    },
+    isActive: { type: Boolean, default: true }
+}, { timestamps: true });
+
+// Customer Schema
+const customerSchema = new Schema({
+    store: { type: Schema.Types.ObjectId, ref: 'Store', required: true },
+    name: { type: String, required: true },
+    email: { type: String, unique: true, sparse: true },
+    phoneNumber: String,
+    prescriptions: [{
+        file: String,
+        uploadDate: { type: Date, default: Date.now },
+        expiryDate: { type: Date, default: null },
+        status: { type: String, enum: ['active', 'expired', 'used'] }
+    }]
+}, { timestamps: true });
+
+// Sale/Transaction Schema
+const saleSchema = new Schema({
+    store: { type: Schema.Types.ObjectId, ref: 'Store', required: true },
+    invoiceNumber: { type: String, required: true, unique: true },
+    customer: { type: Schema.Types.ObjectId, ref: 'Customer' },
+    items: [{
+        product: { type: Schema.Types.ObjectId, ref: 'Product', required: true },
+        batch: { type: Schema.Types.ObjectId, ref: 'Batch', required: true },
+        quantity: { type: Number, required: true },
+        unitPrice: { type: Number, required: true },
+        discount: { type: Number, default: 0 },
+        subtotal: { type: Number, required: true }
+    }],
+    subtotal: { type: Number, required: true },
+    discount: { type: Number, default: 0 },
+    tax: { type: Number, required: true },
+    total: { type: Number, required: true },
+    payment: {
+        method: { type: String, enum: ['cash', 'card', 'mobileBanking'], required: true },
+        status: { type: String, enum: ['pending', 'completed', 'failed'], default: 'pending' },
+        transactionId: String
+    },
+    staffMember: { type: Schema.Types.ObjectId, ref: 'User', required: true }
+}, { timestamps: true });
+
+// Subscription Plan Schema
+const subscriptionPlanSchema = new Schema({
+    name: { type: String, required: true },
+    price: { type: Number, required: true },
+    duration: { type: Number, required: true },
+    features: [{ name: String, description: String, isIncluded: Boolean }],
+    isActive: { type: Boolean, default: true }
+}, { timestamps: true });
+
+// Payment Transaction Schema
+const paymentTransactionSchema = new Schema({
+    user: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+    plan: { type: Schema.Types.ObjectId, ref: 'SubscriptionPlan', required: true },
+    amount: { type: Number, required: true },
+    status: { type: String, enum: ['pending', 'completed', 'failed'], default: 'pending' },
+    paymentMethod: { type: String, enum: ['cash', 'card', 'mobileBanking', 'bankTransfer'], required: true },
+    transactionId: String
+}, { timestamps: true });
+
+module.exports = {
+    User: mongoose.model('User', userSchema),
+    Store: mongoose.model('Store', storeSchema),
+    Category: mongoose.model('Category', categorySchema),
+    Product: mongoose.model('Product', productSchema),
+    Batch: mongoose.model('Batch', batchSchema),
+    Supplier: mongoose.model('Supplier', supplierSchema),
+    Customer: mongoose.model('Customer', customerSchema),
+    Sale: mongoose.model('Sale', saleSchema),
+    SubscriptionPlan: mongoose.model('SubscriptionPlan', subscriptionPlanSchema),
+    PaymentTransaction: mongoose.model('PaymentTransaction', paymentTransactionSchema)
+};
